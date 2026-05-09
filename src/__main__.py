@@ -1,119 +1,60 @@
 #!/usr/bin/env python3
-# import json
-from llm_sdk import Small_LLM_Model
-import numpy as np
-from .helper import find_func, give_args, check_logits, find_index
-# import json
+import sys
 from .parsing import parsing
+from .selector import Select
+from llm_sdk import Small_LLM_Model
+from .helper import find_func, make_path, create_correct, check_path, write_output
 
 
 def main():
     try:
-        prompt_list, function_list, function_data = parsing()
+        args = sys.argv
+        args.pop(0)
+        p_path, f_path, o_path = check_path(args)
+        prompt_list, function_list, function_data = parsing(p_path, f_path)
+        make_path()
     except FileNotFoundError as n:
         return print(n)
+    except OSError as o:
+        return print(o)
     except Exception as e:
-        return print(e)
+        return print('unexpected error:', e)
 
-    # print(function_list, prompt_list, function_data)
-
+    result = list()
     llm = Small_LLM_Model()
-    tmp = [llm.encode(" "+f.name).cpu().detach().numpy()[0].tolist()
-        for f in function_list]
-    tmp.append(llm.encode(' ').cpu().detach().numpy()[0].tolist())
-    f_token_name = list()
-    for tok in tmp:
-        for t in tok:
-            f_token_name.append(t)
-            # print(llm.decode(t))
-    # print(f_token_name)
-
-    banned = []
-    tmp = [llm.encode(b).cpu().detach().numpy()[0].tolist()
-        for b in banned]
-    tmp.append(llm.encode(' ').cpu().detach().numpy()[0].tolist())
-    banned_token = list()
-    for tok in tmp:
-        for t in tok:
-            banned_token.append(t)
-
-    # print(function_data[0]['parameters'])
+    t_list = create_correct(llm, function_list)
+    select = Select(llm, function_data, function_list)
 
     for prompt in prompt_list:
         print(prompt.prompt)
-        tokens = llm.encode(
-            f"""You are a function selector. Given a user request, \
-            you must select the appropriate function to call.
-            Available functions: 
-            {function_data}
-            User request: {prompt.prompt}
-            The correct function to call is: """
-        ).cpu().detach().numpy()[0].tolist()
-
-        func = str()
-        while True:
-            logits = llm.get_logits_from_input_ids(tokens)
-            logits_np = check_logits(logits, f_token_name)
-            token_id = int(np.argmax(logits_np))
-            # print(f"[{llm.decode(token_id)}]")
-            if llm.decode(token_id).isspace():
-                break
-            tokens.append(token_id)
-            func += llm.decode(token_id).lstrip()
+        func = select.function(prompt, t_list)
+        if not func:
+            func = "function not found"
         print(func)
-
         function = find_func(function_list, func)
+        args_str = select.args(prompt, function)
+        name = ""
         if function:
-            args = '{'
-            for arg in function.arguments:
-                args += f'"{arg.name}":'
-                tokens = llm.encode(
-                    f"""Given this user request: "{prompt.prompt}"
-                        Call the function: {function.name}
-                        Arguments needed: {function_data[find_index(
-                        function_data, function.name)]['parameters']}
-                        Arguments: {args}"""
-                ).cpu().detach().numpy()[0].tolist()
-                # print(f"[{llm.decode(tokens)}]")
+            name = function.name
+        # print(args_str)
 
-                while True:
-                    logits = llm.get_logits_from_input_ids(tokens)
-                    logits_np = check_logits(logits, banned_token, banned=True)
-                    token_id = int(np.argmax(logits_np))
-                    tokens.append(token_id)
-                    args += llm.decode(token_id)
-                    if ',' in llm.decode(token_id):
-                        if args.count('"') % 2 == 0:
-                            tokens.append(llm.encode(" ").cpu().detach().numpy()[0].tolist()[0])
-                            args += llm.decode(tokens[-1])
-                            break
-                    elif '}' in llm.decode(token_id):
-                        if args.count('}') == args.count('{'):
-                            break
-                    # print(f"[{llm.decode(tokens)}]")
-                    # print(f"[{args}]")
-            print(args, '\n')
-                            
-            # tokens = llm.encode(
-            #     f"""Given this user request: "{prompt.prompt}"
-            #         Call the function: {function.name}
-            #         Arguments needed: {function_data[find_index(
-            #         function_data, function.name)]['parameters']}
-            #         Arguments in json: """
-            # ).cpu().detach().numpy()[0].tolist()
-            # arg = str()
-            # while True:
-            #     logits = llm.get_logits_from_input_ids(tokens)
-            #     logits_np = check_logits(logits, banned_token, banned=True)
-            #     token_id = int(np.argmax(logits_np))
-            #     if '}' in llm.decode(token_id):
-            #         break
-            #     tokens.append(token_id)
-            #     arg += llm.decode(token_id)
-            #     # print(arg)
-            # arg += llm.decode(token_id)
-            # print(arg, '\n')
+        try:
+            f_args = eval(args_str)
+        except Exception:
+            f_args = args_str
+        print(f_args)
+        result.append({
+            "prompt": prompt.prompt,
+            "name": name,
+            "parameters": f_args,
+        })
+        print()
+
+    write_output(o_path, result)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print('unexpected error:', e)

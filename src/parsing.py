@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import json
-from .Function import Function, Argument, Prompt
+from .Arguments import Function, Argument, Prompt
 
-def parsing():
-    with open('data/.input/function_calling_tests.json', 'r') as f:
+def parsing(p_path: str, f_path: str):
+    with open(p_path, 'r') as f:
         prompt_data = json.load(f)
-    with open('data/.input/functions_definition.json', 'r') as f:
+    with open(f_path, 'r') as f:
         function_data = json.load(f)
 
     function_list = list()
@@ -24,9 +24,14 @@ def parsing():
                 )
             )
         )
+    if not function_list:
+        raise ValueError('must contains at least one definition')
 
     prompt_list = list()
     for prompt in prompt_data:
         prompt_list.append(Prompt(prompt=prompt['prompt']))
+    if not prompt_list:
+        raise ValueError('must contains at least one prompt')
+
     return prompt_list, function_list, function_data
     
