@@ -2,11 +2,12 @@
 import sys
 from .parsing import parsing
 from .selector import Select
-from llm_sdk import Small_LLM_Model
-from .helper import find_func, make_path, create_correct, check_path, write_output
+from llm_sdk import Small_LLM_Model  # type: ignore
+from .helper import find_func, make_path, create_correct
+from .helper import check_path, write_output
 
 
-def main():
+def main() -> None:
     try:
         args = sys.argv
         args.pop(0)

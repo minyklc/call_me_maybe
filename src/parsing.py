@@ -2,7 +2,10 @@
 import json
 from .Arguments import Function, Argument, Prompt
 
-def parsing(p_path: str, f_path: str):
+
+def parsing(
+    p_path: str, f_path: str
+) -> tuple[list[Prompt], list[Function], dict[str, str]]:
     with open(p_path, 'r') as f:
         prompt_data = json.load(f)
     with open(f_path, 'r') as f:
@@ -16,7 +19,7 @@ def parsing(p_path: str, f_path: str):
                 description=function['description'],
                 arguments=[Argument(
                     name=a,
-                    type=function['parameters'][a]['type']) \
+                    type=function['parameters'][a]['type'])
                                   for a in function['parameters']],
                 returns=Argument(
                     name='returns',
@@ -34,4 +37,3 @@ def parsing(p_path: str, f_path: str):
         raise ValueError('must contains at least one prompt')
 
     return prompt_list, function_list, function_data
-    
