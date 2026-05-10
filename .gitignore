@@ -1,4 +1,5 @@
 .DS_Store
 .venv
+venv
 src/test.py
 data/ouptut

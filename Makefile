@@ -1,6 +1,7 @@
 all:
 
 install:
+	python3 -m pip install flake8 mypy
 	uv sync
 
 run:
